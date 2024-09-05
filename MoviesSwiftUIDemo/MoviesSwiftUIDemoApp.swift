@@ -10,23 +10,20 @@ import SwiftData
 
 @main
 struct MoviesSwiftUIDemoApp: App {
-//    var sharedModelContainer: ModelContainer = {
-//        let schema = Schema([
-//            Item.self,
-//        ])
-//        let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
-//
-//        do {
-//            return try ModelContainer(for: schema, configurations: [modelConfiguration])
-//        } catch {
-//            fatalError("Could not create ModelContainer: \(error)")
-//        }
-//    }()
+    let modelContainer: ModelContainer
 
+    init() {
+        do {
+            modelContainer = try ModelContainer(for: MovieDataModel.self, MovieDetailModel.self, GenreModel.self, FavoriteMovieModel.self)
+        } catch {
+            fatalError("Could not initialize ModelContainer")
+        }
+    }
+    
     var body: some Scene {
         WindowGroup {
-            HomeView()
+            HomeView(homeViewModel: HomeViewModel(modelContext: modelContainer.mainContext))
+                .modelContainer(modelContainer)
         }
-        //.modelContainer(sharedModelContainer)
     }
 }

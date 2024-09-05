@@ -7,27 +7,21 @@
 
 import SwiftUI
 import Kingfisher
+import SwiftData
 
 struct MovieListView: View {
     var columns = Array(repeating: GridItem(.flexible(), spacing: 10), count: 3)
-    var movies: [Movie] = []
-    @State var searchText = ""
+    @ObservedObject var movieListViewModel: MovieListViewModel
 
-    var searchedMovies: [Movie] {
-        if searchText.isEmpty {
-            return movies
-        } else {
-            return movies.filter { movie in
-                movie.title?.lowercased().contains(searchText.lowercased()) ?? false
-            }
-        }
+    init(movieListViewModel: MovieListViewModel) {
+        self.movieListViewModel = movieListViewModel
     }
     
     var body: some View {
         ScrollView(showsIndicators: false) {
             LazyVGrid(columns: columns, spacing: 10) {
-                ForEach(searchedMovies) { movie in
-                    NavigationLink(value: movie) {
+                ForEach(movieListViewModel.searchedMovies) { movie in
+                    NavigationLink(destination: MovieDetailView(movieDetailViewModel: MovieDetailViewModel(modelContext: movieListViewModel.modelContext, movieDetail: movieListViewModel.movieSectionList.first(where: {$0.id == movie.id})))) {
                         VStack(spacing: 10) {
                             KFImage(movie.posterURL)
                                 .resizable()
@@ -45,11 +39,12 @@ struct MovieListView: View {
             }
             .padding(.horizontal, 10)
             .buttonStyle(PlainButtonStyle())
-            .searchable(text: $searchText, placement: .navigationBarDrawer(displayMode: .always))
+            .searchable(text: $movieListViewModel.searchText, placement: .navigationBarDrawer(displayMode: .always))
         }
+        .task {
+            await movieListViewModel.saveMovieDetails()
+            movieListViewModel.getMovieDetails()
+        }
+        .navigationTitle(movieListViewModel.movies.first?.movieType?.description ?? "Movies")
     }
-}
-
-#Preview {
-    MovieListView()
 }

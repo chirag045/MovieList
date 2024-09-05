@@ -10,59 +10,68 @@ import Kingfisher
 import SwiftData
 
 struct HomeView: View {
-    //@Environment(\.modelContext) private var modelContext
-    @ObservedObject private var homeViewModel = HomeViewModel()
+    @ObservedObject private var homeViewModel: HomeViewModel
+    
+    init(homeViewModel: HomeViewModel) {
+        self.homeViewModel = homeViewModel
+    }
     
     var body: some View {
         NavigationStack {
-            List {
-                Group {
-                    if homeViewModel.trendingMovies != nil {
-                        MovieImageView(title: HomeMovieType.trending.description, movies: homeViewModel.trendingMovies!)
-                    } else {
-                        loaderView()
+            if !homeViewModel.isLoading {
+                List {
+                    Group {
+                        if homeViewModel.movies.filter({$0.movieType == HomeMovieType.trending.description}).count > 0 {
+                            MovieImageView(title: HomeMovieType.trending.description, movies: homeViewModel.movies.filter({$0.movieType == HomeMovieType.trending.description}), homeViewModel: homeViewModel)
+                        } else {
+                            Text("No Trending Movies.")
+                                .multilineTextAlignment(.center)
+                        }
                     }
-                }
-                .listRowInsets(EdgeInsets(top: 16, leading: 0, bottom: 16, trailing: 0))
-                
-                Group {
-                    if homeViewModel.upcomingMovies != nil {
-                        MovieImageView(title: HomeMovieType.upcoming.description, movies: homeViewModel.upcomingMovies!)
-                    } else {
-                        loaderView()
+                    .listRowInsets(EdgeInsets(top: 16, leading: 0, bottom: 16, trailing: 0))
+                    
+                    Group {
+                        if homeViewModel.movies.filter({$0.movieType == HomeMovieType.upcoming.description}).count > 0 {
+                            MovieImageView(title: HomeMovieType.upcoming.description, movies: homeViewModel.movies.filter({$0.movieType == HomeMovieType.upcoming.description}), homeViewModel: homeViewModel)
+                        } else {
+                            Text("No Upcoming Movies.")
+                                .multilineTextAlignment(.center)
+                        }
                     }
-                }
-                .listRowInsets(EdgeInsets(top: 8, leading: 0, bottom: 8, trailing: 0))
-                
-                Group {
-                    if homeViewModel.topRatedmovies != nil {
-                        MovieImageView(title: HomeMovieType.topRated.description, movies: homeViewModel.topRatedmovies!)
-                    } else {
-                        loaderView()
+                    .listRowInsets(EdgeInsets(top: 8, leading: 0, bottom: 8, trailing: 0))
+                    
+                    Group {
+                        if homeViewModel.movies.filter({$0.movieType == HomeMovieType.topRated.description}).count > 0 {
+                            MovieImageView(title: HomeMovieType.topRated.description, movies: homeViewModel.movies.filter({$0.movieType == HomeMovieType.topRated.description}), homeViewModel: homeViewModel)
+                        } else {
+                            Text("No Top rated Movies.")
+                                .multilineTextAlignment(.center)
+                        }
                     }
-                }
-                .listRowInsets(EdgeInsets(top: 8, leading: 0, bottom: 8, trailing: 0))
-                
-                Group {
-                    if homeViewModel.popularMovies != nil {
-                        MovieImageView(title: HomeMovieType.popular.description, movies: homeViewModel.popularMovies!)
-                    } else {
-                        loaderView()
+                    .listRowInsets(EdgeInsets(top: 8, leading: 0, bottom: 8, trailing: 0))
+                    
+                    Group {
+                        if homeViewModel.movies.filter({$0.movieType == HomeMovieType.popular.description}).count > 0 {
+                            MovieImageView(title: HomeMovieType.popular.description, movies: homeViewModel.movies.filter({$0.movieType == HomeMovieType.popular.description}), homeViewModel: homeViewModel)
+                        } else {
+                            Text("No Popular Movies.")
+                                .multilineTextAlignment(.center)
+                        }
                     }
+                    .listRowInsets(EdgeInsets(top: 8, leading: 0, bottom: 16, trailing: 0))
                 }
-                .listRowInsets(EdgeInsets(top: 8, leading: 0, bottom: 16, trailing: 0))
+                .navigationTitle("Movies")
+            } else {
+                loaderView()
             }
-            .navigationTitle("Movies")
         }
         .task {
-            await homeViewModel.getTrendingMovies()
-            await homeViewModel.getPopularMovies()
-            await homeViewModel.getUpcomingMovies()
-            await homeViewModel.getTopRatedMovies()
+            await homeViewModel.saveMovieToLocal()
+            homeViewModel.fetchHomeMovies()
         }
     }
     
-    func loaderView() -> some View {
+    private func loaderView() -> some View {
         HStack {
             Spacer()
             ProgressView()
@@ -71,14 +80,12 @@ struct HomeView: View {
     }
 }
 
-#Preview {
-    HomeView()
-        //.modelContainer(for: Item.self, inMemory: true)
-}
 
+//MARK: - Image View
 struct MovieImageView: View {
     let title: String?
-    let movies: [Movie]
+    let movies: [MovieDataModel]
+    var homeViewModel: HomeViewModel
     @State private var isMoveToDetail = false
     
     var body: some View {
@@ -100,15 +107,15 @@ struct MovieImageView: View {
                     }
                     .padding(.trailing)
                     .navigationDestination(isPresented: $isMoveToDetail) {
-                        MovieListView(movies: movies)
+                        MovieListView(movieListViewModel: MovieListViewModel(modelContext: homeViewModel.modelContext, movies: movies))
                     }
                 }
             }
             
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(alignment: .top, spacing: 10) {
-                    ForEach(self.movies) { movie in
-                        NavigationLink(destination: EmptyView()) {
+                    ForEach(movies) { movie in
+                        NavigationLink(destination: MovieListView(movieListViewModel: MovieListViewModel(modelContext: homeViewModel.modelContext, movies: movies))) {
                             VStack {
                                 KFImage(movie.posterURL)
                                     .resizable()
@@ -120,7 +127,6 @@ struct MovieImageView: View {
                                     .multilineTextAlignment(.center)
                                     .frame(width: 160)
                             }
-
                         }
                         .buttonStyle(PlainButtonStyle())
                         .padding(.leading, movie.id == self.movies.first!.id ? 16 : 0)
